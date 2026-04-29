@@ -1,0 +1,92 @@
+<dotnetnuke type="Package" version="5.0">
+	<packages>
+		<package name="Dnn.Kolcsonzes" type="Module" version="00.00.01">
+			<friendlyName>Dnn.Kolcsonzes</friendlyName>
+			<description>Dnn.Kolcsonzes</description>
+			<iconFile>~/Icons/Sigma/Software_32X32_Standard.png</iconFile>
+
+			<owner>
+				<name>Diamondz</name>
+				<organization>Diamondz</organization>
+				<url>https://dnndev.me/</url>
+				<email>diamondz.main@gmail.com</email>
+			</owner>
+
+			<license src="License.txt"></license>
+			<releaseNotes src="ReleaseNotes.txt"></releaseNotes>
+
+			<dependencies>
+				<dependency type="CoreVersion">09.08.00</dependency>
+			</dependencies>
+
+			<components>
+
+				<component type="Script">
+					<scripts>
+						<basePath>DesktopModules\MVC\Dnn.Kolcsonzes</basePath>
+
+						<script type="Install">
+							<path>Providers\DataProviders\SqlDataProvider</path>
+							<name>00.00.01.SqlDataProvider</name>
+							<version>00.00.01</version>
+						</script>
+
+						<script type="UnInstall">
+							<path>Providers\DataProviders\SqlDataProvider</path>
+							<name>Uninstall.SqlDataProvider</name>
+							<version>00.00.01</version>
+						</script>
+					</scripts>
+				</component>
+
+				<component type="ResourceFile">
+					<resourceFiles>
+						<basePath>DesktopModules/MVC/Dnn.Kolcsonzes</basePath>
+						<resourceFile>
+							<name>Resources.zip</name>
+						</resourceFile>
+					</resourceFiles>
+				</component>
+
+				<component type="Module">
+					<desktopModule>
+						<moduleName>Dnn.Kolcsonzes</moduleName>
+						<foldername>Dnn.Kolcsonzes</foldername>
+						<businessControllerClass></businessControllerClass>
+						<supportedFeatures />
+
+						<moduleDefinitions>
+							<moduleDefinition>
+								<friendlyName>Dnn.Kolcsonzes</friendlyName>
+								<defaultCacheTime>0</defaultCacheTime>
+
+								<moduleControls>
+									<moduleControl>
+										<controlKey></controlKey>
+										<controlSrc>DnnKolcsonzes.Controllers/Rental/Index.mvc</controlSrc>
+										<supportsPartialRendering>False</supportsPartialRendering>
+										<controlTitle></controlTitle>
+										<controlType>View</controlType>
+										<iconFile></iconFile>
+										<helpUrl></helpUrl>
+										<viewOrder>0</viewOrder>
+									</moduleControl>
+								</moduleControls>
+							</moduleDefinition>
+						</moduleDefinitions>
+					</desktopModule>
+				</component>
+
+				<component type="Assembly">
+					<assemblies>
+						<assembly>
+							<name>Dnn.Kolcsonzes.dll</name>
+							<path>bin</path>
+						</assembly>
+					</assemblies>
+				</component>
+
+			</components>
+		</package>
+	</packages>
+</dotnetnuke>

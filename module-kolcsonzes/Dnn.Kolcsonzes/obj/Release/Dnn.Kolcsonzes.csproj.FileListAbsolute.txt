@@ -1,0 +1,10 @@
+C:\DNN8\DesktopModules\bin\Dnn.Kolcsonzes.dll.config
+C:\DNN8\DesktopModules\bin\Dnn.Kolcsonzes.dll
+C:\DNN8\DesktopModules\bin\Dnn.Kolcsonzes.pdb
+C:\DNN8\DesktopModules\Diamondz\module-kolcsonzes\Dnn.Kolcsonzes\obj\Release\Dnn.Kolcsonzes.csproj.AssemblyReference.cache
+C:\DNN8\DesktopModules\Diamondz\module-kolcsonzes\Dnn.Kolcsonzes\obj\Release\Kolcsonzes.DnnDnn.Kolcsonzes.App_LocalResources.Settings.resources
+C:\DNN8\DesktopModules\Diamondz\module-kolcsonzes\Dnn.Kolcsonzes\obj\Release\Dnn.Kolcsonzes.csproj.GenerateResource.cache
+C:\DNN8\DesktopModules\Diamondz\module-kolcsonzes\Dnn.Kolcsonzes\obj\Release\Dnn.Kolcsonzes.csproj.CoreCompileInputs.cache
+C:\DNN8\DesktopModules\Diamondz\module-kolcsonzes\Dnn.Kolcsonzes\obj\Release\Dnn.Kolc.C8668F58.Up2Date
+C:\DNN8\DesktopModules\Diamondz\module-kolcsonzes\Dnn.Kolcsonzes\obj\Release\Dnn.Kolcsonzes.dll
+C:\DNN8\DesktopModules\Diamondz\module-kolcsonzes\Dnn.Kolcsonzes\obj\Release\Dnn.Kolcsonzes.pdb

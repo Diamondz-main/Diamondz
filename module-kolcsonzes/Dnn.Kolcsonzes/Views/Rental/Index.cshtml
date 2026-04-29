@@ -1,0 +1,484 @@
+﻿@inherits DotNetNuke.Web.Mvc.Framework.DnnWebViewPage<DnnKolcsonzes.Models.RentalProductViewModel>
+@using System.Collections.Generic
+@using System.Web.Script.Serialization
+
+@{
+    Layout = null;
+    var serializer = new JavaScriptSerializer();
+    var blockedJson = serializer.Serialize(Model.UnavailableRanges ?? new List<DnnKolcsonzes.Models.UnavailableDateRange>());
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/hu.js"></script>
+
+<div class="dz-rental-page">
+    <div class="dz-rental-shell">
+
+        <div class="dz-breadcrumb">
+            <span>ALL PRODUCTS</span>
+            <span>/</span>
+            <span>@Model.Title</span>
+            <span>/</span>
+            <strong>Kölcsönzés</strong>
+        </div>
+
+        <div class="dz-rental-grid">
+
+            <div class="dz-gallery-card dz-reveal">
+                @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+                {
+                    <img src="@Model.ImageUrl" alt="@Model.Title" class="dz-product-image" />
+                }
+                else
+                {
+                    <div class="dz-image-placeholder">
+                        <div class="dz-image-placeholder-inner">
+                            <div class="dz-image-placeholder-title">Termékkép helye</div>
+                            <div class="dz-image-placeholder-text">A következő körben ide húzzuk be a Hotcakes termékképet.</div>
+                        </div>
+                    </div>
+                }
+
+                <div class="dz-gallery-badges">
+                    @if (Model.Highlights != null)
+                    {
+                        foreach (var item in Model.Highlights)
+                        {
+                            <div class="dz-mini-badge">
+                                <div class="dz-mini-badge-title">@item.Title</div>
+                                <div class="dz-mini-badge-text">@item.Text</div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="dz-details-card dz-reveal">
+                <div class="dz-kicker">@Model.Subtitle</div>
+                <h1 class="dz-title">@Model.Title</h1>
+
+                <div class="dz-price-row">
+                    <div class="dz-price-label">Napi díj</div>
+                    <div class="dz-price">@String.Format("{0:N0}", Model.DailyPrice) Ft</div>
+                </div>
+
+                <div class="dz-quick-meta">
+                    <div class="dz-meta-pill">Minimum @Model.MinRentalDays nap</div>
+                    @if (Model.MaxRentalDays.HasValue)
+                    {
+                        <div class="dz-meta-pill">Maximum @Model.MaxRentalDays nap</div>
+                    }
+                    <div class="dz-meta-pill">Kaució: @String.Format("{0:N0}", Model.DepositAmount) Ft</div>
+                </div>
+
+                <div class="dz-picker-grid">
+                    <div class="dz-field">
+                        <label>Átvétel / kezdés</label>
+                        <input id="dzStartDate" class="dz-date-input" type="text" placeholder="YYYY-MM-DD" readonly />
+                    </div>
+                    <div class="dz-field">
+                        <label>Visszahozás / vége</label>
+                        <input id="dzEndDate" class="dz-date-input" type="text" placeholder="YYYY-MM-DD" readonly />
+                    </div>
+                </div>
+
+                <input id="dzDateRangePicker"
+                       type="text"
+                       autocomplete="off"
+                       tabindex="-1"
+                       aria-hidden="true"
+                       style="position:absolute;left:-99999px;top:auto;width:1px;height:1px;opacity:0;pointer-events:none;" />
+
+                <div id="dzAvailabilityStatus" class="dz-status">
+                    Válassz dátumokat a foglaltság ellenőrzéséhez.
+                </div>
+
+                <div class="dz-summary-card">
+                    <div class="dz-summary-row">
+                        <span>Bérlés napjai</span>
+                        <strong id="dzTotalDays">-</strong>
+                    </div>
+                    <div class="dz-summary-row">
+                        <span>Bérleti díj</span>
+                        <strong id="dzRentalFee">-</strong>
+                    </div>
+                    <div class="dz-summary-row">
+                        <span>Kaució</span>
+                        <strong>@String.Format("{0:N0}", Model.DepositAmount) Ft</strong>
+                    </div>
+                    <div class="dz-summary-row dz-summary-total">
+                        <span>Fizetendő a checkoutra</span>
+                        <strong id="dzGrandTotal">-</strong>
+                    </div>
+                </div>
+
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="ProductBvin" value="@Model.ProductBvin" />
+                <input type="hidden" name="Sku" value="@Model.Sku" />
+                <input type="hidden" id="dzPostQuantity" name="Quantity" value="1" />
+                <input type="hidden" id="dzPostStartDate" name="StartDate" />
+                <input type="hidden" id="dzPostEndDate" name="EndDate" />
+
+                <button id="dzBookingBtn"
+                        class="dz-main-btn"
+                        type="button"
+                        disabled>
+                    Tovább a checkoutra
+                </button>
+
+                <div class="dz-note">
+                    @Model.RentalNote
+                </div>
+
+                <div class="dz-rules">
+                    <div class="dz-rule-card">
+                        <div class="dz-rule-title">Átvétel</div>
+                        <div class="dz-rule-text">
+                            @(Model.PickupAllowed ? "Személyes átvétel elérhető." : "Személyes átvétel nem elérhető.")
+                        </div>
+                    </div>
+
+                    <div class="dz-rule-card">
+                        <div class="dz-rule-title">Szállítás</div>
+                        <div class="dz-rule-text">
+                            @(Model.ShippingAllowed ? "Szállítás elérhető egyeztetés alapján." : "Jelenleg csak személyes átvétel.")
+                        </div>
+                    </div>
+
+                    <div class="dz-rule-card">
+                        <div class="dz-rule-title">Előkészítés</div>
+                        <div class="dz-rule-text">
+                            Minimum @Model.PreparationDays nap szükséges a kiadás előtt.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dz-bottom-grid">
+            <div class="dz-description-card dz-reveal">
+                <h2>Leírás</h2>
+                <div class="dz-description-content">
+                    @Html.Raw(Model.DescriptionHtml)
+                </div>
+            </div>
+
+            <div class="dz-unavailable-card dz-reveal">
+                <h2>Foglalt időszakok</h2>
+
+                @if (Model.UnavailableRanges != null && Model.UnavailableRanges.Count > 0)
+                {
+                    foreach (var range in Model.UnavailableRanges)
+                    {
+                        <div class="dz-date-block">
+                            <span>@range.Start</span>
+                            <span>—</span>
+                            <span>@range.End</span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="dz-date-block dz-date-block-empty">
+                        Jelenleg nincs rögzített foglalás.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var blockedRanges = (@Html.Raw(blockedJson)) || [];
+    var pricePerDay = @Model.DailyPrice.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    var depositAmount = @Model.DepositAmount.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    var minRentalDays = @Model.MinRentalDays;
+    var maxRentalDays = @(Model.MaxRentalDays.HasValue ? Model.MaxRentalDays.Value.ToString() : "null");
+    var preparationDays = @Model.PreparationDays;
+    var addToCartUrl = '@Url.Action("AddToCart", "Rental")';
+
+    var startInput = document.getElementById('dzStartDate');
+    var endInput = document.getElementById('dzEndDate');
+    var rangeInput = document.getElementById('dzDateRangePicker');
+    var postStartInput = document.getElementById('dzPostStartDate');
+    var postEndInput = document.getElementById('dzPostEndDate');
+    var postQuantityInput = document.getElementById('dzPostQuantity');
+    var statusEl = document.getElementById('dzAvailabilityStatus');
+    var totalDaysEl = document.getElementById('dzTotalDays');
+    var rentalFeeEl = document.getElementById('dzRentalFee');
+    var grandTotalEl = document.getElementById('dzGrandTotal');
+    var bookingBtn = document.getElementById('dzBookingBtn');
+    var mainForm = document.getElementById('Form') || document.forms[0];
+
+    function toDate(value) {
+        if (!value) return null;
+        var parts = value.split('-');
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    }
+
+    function normalizeDate(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    }
+
+    function addDays(date, days) {
+        var d = new Date(date.getTime());
+        d.setDate(d.getDate() + days);
+        return d;
+    }
+
+    function formatYmd(date) {
+        var y = date.getFullYear();
+        var m = String(date.getMonth() + 1).padStart(2, '0');
+        var d = String(date.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function overlaps(aStart, aEnd, bStart, bEnd) {
+        return aStart <= bEnd && aEnd >= bStart;
+    }
+
+    function formatFt(value) {
+        return new Intl.NumberFormat('hu-HU').format(value) + ' Ft';
+    }
+
+    function setStatus(text, type) {
+        statusEl.className = type ? ('dz-status ' + type) : 'dz-status';
+        statusEl.textContent = text;
+    }
+
+    function resetSummary() {
+        bookingBtn.disabled = true;
+        totalDaysEl.textContent = '-';
+        rentalFeeEl.textContent = '-';
+        grandTotalEl.textContent = '-';
+        postStartInput.value = '';
+        postEndInput.value = '';
+        if (postQuantityInput) {
+            postQuantityInput.value = '1';
+        }
+    }
+
+    function syncVisibleInputs(selectedDates) {
+        startInput.value = '';
+        endInput.value = '';
+
+        if (selectedDates.length > 0) {
+            startInput.value = formatYmd(selectedDates[0]);
+        }
+
+        if (selectedDates.length > 1) {
+            endInput.value = formatYmd(selectedDates[1]);
+        }
+    }
+
+    function isBlockedDay(dateObj) {
+        var current = normalizeDate(dateObj);
+
+        for (var i = 0; i < blockedRanges.length; i++) {
+            var blockedStart = toDate(blockedRanges[i].Start);
+            var blockedEnd = toDate(blockedRanges[i].End);
+
+            if (blockedStart && blockedEnd && current >= blockedStart && current <= blockedEnd) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function updateAdjacentRangeClass(instance) {
+        if (!instance || !instance.calendarContainer) return;
+
+        instance.calendarContainer.classList.remove('dz-adjacent-range');
+
+        if (instance.selectedDates.length === 2) {
+            var start = normalizeDate(instance.selectedDates[0]);
+            var end = normalizeDate(instance.selectedDates[1]);
+            var diff = Math.round((end - start) / 86400000);
+
+            if (diff === 1) {
+                instance.calendarContainer.classList.add('dz-adjacent-range');
+            }
+        }
+    }
+
+    function calculate() {
+        resetSummary();
+
+        if (!startInput.value && !endInput.value) {
+            setStatus('Válassz dátumokat a foglaltság ellenőrzéséhez.', '');
+            return false;
+        }
+
+        if (startInput.value && !endInput.value) {
+            setStatus('Válaszd ki a záró dátumot.', '');
+            return false;
+        }
+
+        var start = toDate(startInput.value);
+        var end = toDate(endInput.value);
+
+        if (!start || !end) {
+            setStatus('Válassz érvényes dátumokat.', 'is-error');
+            return false;
+        }
+
+        if (end < start) {
+            setStatus('A záró dátum nem lehet korábbi, mint a kezdő dátum.', 'is-error');
+            return false;
+        }
+
+        var diffDays = Math.floor((end - start) / 86400000) + 1;
+
+        if (diffDays < minRentalDays) {
+            setStatus('Minimum ' + minRentalDays + ' napos bérlés szükséges.', 'is-error');
+            return false;
+        }
+
+        if (maxRentalDays !== null && maxRentalDays !== "null") {
+            var maxVal = parseInt(maxRentalDays, 10);
+            if (diffDays > maxVal) {
+                setStatus('Maximum ' + maxVal + ' nap foglalható egyszerre.', 'is-error');
+                return false;
+            }
+        }
+
+        for (var i = 0; i < blockedRanges.length; i++) {
+            var blockedStart = toDate(blockedRanges[i].Start);
+            var blockedEnd = toDate(blockedRanges[i].End);
+
+            if (blockedStart && blockedEnd && overlaps(start, end, blockedStart, blockedEnd)) {
+                setStatus('A kiválasztott időszak részben vagy egészben már foglalt.', 'is-error');
+                return false;
+            }
+        }
+
+        var rentalFee = diffDays * parseFloat(pricePerDay);
+        var grandTotal = rentalFee;
+
+        totalDaysEl.textContent = diffDays + ' nap';
+        rentalFeeEl.textContent = formatFt(rentalFee);
+        grandTotalEl.textContent = formatFt(grandTotal);
+
+        postStartInput.value = startInput.value;
+        postEndInput.value = endInput.value;
+
+        if (postQuantityInput) {
+            postQuantityInput.value = diffDays.toString();
+        }
+
+        setStatus('A kiválasztott időszak rendben van.', 'is-success');
+        bookingBtn.disabled = false;
+        return true;
+    }
+
+    var disableConfig = [];
+    for (var d = 0; d < blockedRanges.length; d++) {
+        disableConfig.push({ from: blockedRanges[d].Start, to: blockedRanges[d].End });
+    }
+
+    var minSelectableDate = formatYmd(addDays(normalizeDate(new Date()), preparationDays));
+
+    function markBlockedDay(_, __, fp, dayElem) {
+        if (isBlockedDay(dayElem.dateObj)) {
+            dayElem.classList.add('dz-booked-day');
+        }
+    }
+
+    var rangePicker = flatpickr(rangeInput, {
+        locale: flatpickr.l10ns.hu,
+        mode: 'range',
+        dateFormat: 'Y-m-d',
+        monthSelectorType: 'static',
+        disableMobile: true,
+        clickOpens: false,
+        allowInput: false,
+        minDate: minSelectableDate,
+        disable: disableConfig,
+        prevArrow: '<span class="dz-cal-arrow">&#10094;</span>',
+        nextArrow: '<span class="dz-cal-arrow">&#10095;</span>',
+        onReady: function (selectedDates, dateStr, instance) {
+            instance.calendarContainer.classList.add('dz-flatpickr-theme');
+            updateAdjacentRangeClass(instance);
+        },
+        onOpen: function (selectedDates, dateStr, instance) {
+            updateAdjacentRangeClass(instance);
+        },
+        onDayCreate: function (dObj, dStr, fp, dayElem) {
+            markBlockedDay(dObj, dStr, fp, dayElem);
+        },
+        onChange: function (selectedDates, dateStr, instance) {
+            syncVisibleInputs(selectedDates);
+            updateAdjacentRangeClass(instance);
+            calculate();
+
+            if (selectedDates.length === 1) {
+                setTimeout(function () { instance.open(); }, 0);
+            }
+
+            if (selectedDates.length === 2) {
+                setTimeout(function () { instance.close(); }, 80);
+            }
+        }
+    });
+
+    function openRangePicker(sourceInput) {
+        rangePicker.set('positionElement', sourceInput);
+        rangePicker.open();
+    }
+
+    startInput.addEventListener('click', function () { openRangePicker(startInput); });
+    startInput.addEventListener('focus', function () { openRangePicker(startInput); });
+
+    endInput.addEventListener('click', function () {
+        if (!startInput.value) {
+            openRangePicker(startInput);
+            return;
+        }
+        openRangePicker(endInput);
+    });
+
+    endInput.addEventListener('focus', function () {
+        if (!startInput.value) {
+            openRangePicker(startInput);
+            return;
+        }
+        openRangePicker(endInput);
+    });
+
+    bookingBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+
+        var ok = calculate();
+        if (!ok) return;
+        if (!mainForm) return;
+
+        mainForm.action = addToCartUrl;
+        mainForm.method = 'post';
+        mainForm.submit();
+    });
+
+    calculate();
+
+    var reveals = document.querySelectorAll('.dz-reveal');
+    if (window.IntersectionObserver) {
+        var io = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                }
+            });
+        }, { threshold: 0.15 });
+
+        for (var j = 0; j < reveals.length; j++) {
+            io.observe(reveals[j]);
+        }
+    } else {
+        for (var k = 0; k < reveals.length; k++) {
+            reveals[k].classList.add('is-visible');
+        }
+    }
+})();
+</script>
