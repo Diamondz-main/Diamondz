@@ -36,6 +36,15 @@ public class Product
     public string? InventoryBvin { get; set; }
 
     [JsonIgnore]
+    public int InventoryOnHandQuantity { get; set; }
+
+    [JsonIgnore]
+    public int InventoryReservedQuantity { get; set; }
+
+    [JsonIgnore]
+    public int PurchasedCommittedQuantity { get; set; }
+
+    [JsonIgnore]
     public int InventoryQuantity { get; set; }
 
     [JsonIgnore]
@@ -43,6 +52,17 @@ public class Product
 
     [JsonIgnore]
     public string AvailabilityText => EffectiveIsAvailable ? "El\u00e9rhet\u0151" : "Nem el\u00e9rhet\u0151";
+
+    [JsonIgnore]
+    public bool IsRentableProduct
+    {
+        get
+        {
+            var name = ProductName ?? string.Empty;
+            return name.Contains("bérelhető", StringComparison.OrdinalIgnoreCase) ||
+                   name.Contains("berelheto", StringComparison.OrdinalIgnoreCase);
+        }
+    }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtraData { get; set; }

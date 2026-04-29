@@ -14,11 +14,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Acer\\Documents\\Susu 4.félév\\Rendszerfejlesztés\\winforms\\diamondz-winforms-starter\\DiamondzWinForms.csproj",
+      "projectUniqueName": "C:\\Users\\Acer\\Documents\\Susu 4.félév\\Rendszerfejlesztés\\winforms\\diamondz-winformsapp\\DiamondzWinForms.csproj",
       "projectName": "DiamondzWinForms",
-      "projectPath": "C:\\Users\\Acer\\Documents\\Susu 4.félév\\Rendszerfejlesztés\\winforms\\diamondz-winforms-starter\\DiamondzWinForms.csproj",
+      "projectPath": "C:\\Users\\Acer\\Documents\\Susu 4.félév\\Rendszerfejlesztés\\winforms\\diamondz-winformsapp\\DiamondzWinForms.csproj",
       "packagesPath": "C:\\Users\\Acer\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Acer\\Documents\\Susu 4.félév\\Rendszerfejlesztés\\winforms\\diamondz-winforms-starter\\obj\\",
+      "outputPath": "C:\\Users\\Acer\\Documents\\Susu 4.félév\\Rendszerfejlesztés\\winforms\\diamondz-winformsapp\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

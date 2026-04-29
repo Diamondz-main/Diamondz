@@ -1,4 +1,5 @@
-﻿using DiamondzWinForms.Controls;
+using DiamondzWinForms.Controls;
+using DiamondzWinForms.Helpers;
 using DiamondzWinForms.Models;
 using DiamondzWinForms.Services;
 
@@ -27,7 +28,7 @@ public class MainForm : Form
     {
         Text = "Diamondz Admin";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(1400, 820);
+        MinimumSize = new Size(1100, 720);
         Size = new Size(1500, 900);
         BackColor = Color.FromArgb(246, 243, 239);
         WindowState = FormWindowState.Maximized;
@@ -47,7 +48,8 @@ public class MainForm : Form
             Font = new Font("Georgia", 20, FontStyle.Bold),
             ForeColor = Color.White,
             AutoSize = false,
-            Size = new Size(240, 54),
+            AutoEllipsis = true,
+            Size = new Size(240, 60),
             TextAlign = ContentAlignment.MiddleCenter,
             Location = new Point(0, 6)
         };
@@ -56,14 +58,10 @@ public class MainForm : Form
         _ordersButton = CreateMenuButton("K\u00f6lcs\u00f6nz\u00e9sek", 185);
         _productsButton = CreateMenuButton("Term\u00e9kek", 250);
 
-        _dashboardButton.Click += (_, _) => ShowControl(_dashboardControl, _dashboardButton);
-        _ordersButton.Click += (_, _) => ShowControl(_ordersControl, _ordersButton);
-        _productsButton.Click += (_, _) => ShowControl(_productsControl, _productsButton);
-
         _refreshButton = new Button
         {
-            Text = "Friss\u00edt\u00e9s",
-            Size = new Size(120, 40),
+            Text = "Adatok \u00fajrat\u00f6lt\u00e9se",
+            Size = new Size(184, 40),
             FlatStyle = FlatStyle.Flat,
             BackColor = Color.FromArgb(202, 162, 107),
             ForeColor = Color.White,
@@ -71,6 +69,7 @@ public class MainForm : Form
             Anchor = AnchorStyles.Left | AnchorStyles.Bottom
         };
         _refreshButton.FlatAppearance.BorderSize = 0;
+        _refreshButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(220, 180, 124);
         _refreshButton.Click += async (_, _) => await LoadDataAsync();
 
         _statusLabel = new Label
@@ -99,8 +98,21 @@ public class MainForm : Form
         _dashboardControl = new DashboardControl();
         _ordersControl = new OrdersControl();
         _productsControl = new ProductsControl();
+        _dashboardControl.AllProductsRequested += () => ShowProducts(_productsControl.ShowAllProducts);
+        _dashboardControl.AvailableProductsRequested += () => ShowProducts(_productsControl.ShowAvailableProducts);
+        _dashboardControl.PurchasableProductsRequested += () => ShowProducts(_productsControl.ShowPurchasableProducts);
+        _dashboardControl.LowStockProductsRequested += () => ShowProducts(_productsControl.ShowLowStockProducts);
+        _dashboardControl.OutOfStockPurchasableProductsRequested += () => ShowProducts(_productsControl.ShowOutOfStockPurchasableProducts);
+        _dashboardControl.RentableProductsRequested += () => ShowProducts(_productsControl.ShowRentableProducts);
+        _dashboardControl.AllOrdersRequested += () => ShowOrders(_ordersControl.ShowPaidOrders);
+        _dashboardControl.CompletedOrdersRequested += () => ShowOrders(_ordersControl.ShowExpiredOrders);
+        _dashboardControl.PendingOrdersRequested += () => ShowOrders(_ordersControl.ShowPendingOrders);
+        _dashboardControl.ActiveOrdersRequested += () => ShowOrders(_ordersControl.ShowActiveOrders);
         _productsControl.SaveRequested += SaveProductAsync;
-        _productsControl.EnsureMissingInventoryRequested += EnsureMissingInventoryAsync;
+
+        _dashboardButton.Click += (_, _) => ShowControl(_dashboardControl, _dashboardButton);
+        _ordersButton.Click += (_, _) => ShowControl(_ordersControl, _ordersButton);
+        _productsButton.Click += (_, _) => ShowControl(_productsControl, _productsButton);
 
         _contentPanel.Controls.Add(_dashboardControl);
         _contentPanel.Controls.Add(_ordersControl);
@@ -118,10 +130,50 @@ public class MainForm : Form
 
     private void LayoutSidebar()
     {
-        _logoLabel.Size = new Size(_sidebar.Width, 54);
-        _logoLabel.Location = new Point(0, 6);
-        _refreshButton.Location = new Point(28, _sidebar.Height - 112);
-        _statusLabel.Location = new Point(28, _sidebar.Height - 66);
+        var sidebarWidth = UiScale.Dpi(this, 240);
+        if (_sidebar.Width != sidebarWidth)
+            _sidebar.Width = sidebarWidth;
+
+        var compact = _sidebar.Width < 210;
+        var logoTop = UiScale.Dpi(_sidebar, 8);
+        var logoHeight = UiScale.Dpi(_sidebar, 62);
+        var buttonHeight = UiScale.Dpi(_sidebar, 52);
+        var menuTop = UiScale.Dpi(_sidebar, 118);
+        var menuGap = UiScale.Dpi(_sidebar, 14);
+        var sideMargin = UiScale.Dpi(_sidebar, 28);
+
+        _logoLabel.Size = new Size(_sidebar.Width, logoHeight);
+        _logoLabel.Location = new Point(0, logoTop);
+        _logoLabel.Padding = UiScale.Dpi(_sidebar, 8, 0, 8, 0);
+        _logoLabel.Font = UiScale.FitFont(
+            _logoLabel,
+            _logoLabel.Text,
+            "Georgia",
+            compact ? 17 : 20,
+            12,
+            FontStyle.Bold,
+            Math.Max(1, _logoLabel.Width - UiScale.Dpi(_logoLabel, 20)),
+            Math.Max(1, _logoLabel.Height - UiScale.Dpi(_logoLabel, 8)));
+
+        var buttonWidth = Math.Max(UiScale.Dpi(_sidebar, 150), _sidebar.Width - (sideMargin * 2));
+        var index = 0;
+        foreach (var button in new[] { _dashboardButton, _ordersButton, _productsButton })
+        {
+            button.Size = new Size(buttonWidth, buttonHeight);
+            button.Left = Math.Max(UiScale.Dpi(_sidebar, 10), (_sidebar.Width - buttonWidth) / 2);
+            button.Top = menuTop + (index * (buttonHeight + menuGap));
+            button.Font = compact ? new Font("Segoe UI", 9.5f, FontStyle.Bold) : new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            button.Padding = UiScale.Dpi(_sidebar, compact ? 10 : 14, 0, compact ? 8 : 10, 0);
+            index++;
+        }
+
+        _refreshButton.Width = buttonWidth;
+        _refreshButton.Height = UiScale.Dpi(_sidebar, 40);
+        _refreshButton.Location = new Point(Math.Max(UiScale.Dpi(_sidebar, 10), (_sidebar.Width - buttonWidth) / 2), _sidebar.Height - UiScale.Dpi(_sidebar, 112));
+        _refreshButton.Font = compact ? new Font("Segoe UI", 8.5f, FontStyle.Bold) : new Font("Segoe UI", 10, FontStyle.Bold);
+        _statusLabel.Location = new Point(UiScale.Dpi(_sidebar, 28), _sidebar.Height - UiScale.Dpi(_sidebar, 66));
+        _statusLabel.Size = new Size(_sidebar.Width - UiScale.Dpi(_sidebar, 40), UiScale.Dpi(_sidebar, 48));
+        _statusLabel.Font = compact ? new Font("Segoe UI", 8.5f, FontStyle.Regular) : new Font("Segoe UI", 9f, FontStyle.Regular);
     }
 
     private Button CreateMenuButton(string text, int top)
@@ -136,11 +188,25 @@ public class MainForm : Form
             BackColor = Color.FromArgb(28, 34, 74),
             ForeColor = Color.White,
             TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(18, 0, 0, 0)
+            Padding = new Padding(18, 0, 0, 0),
+            AutoEllipsis = true
         };
 
         button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.MouseOverBackColor = Color.FromArgb(47, 55, 104);
         return button;
+    }
+
+    private void ShowProducts(Action applyFilter)
+    {
+        ShowControl(_productsControl, _productsButton);
+        applyFilter();
+    }
+
+    private void ShowOrders(Action applyFilter)
+    {
+        ShowControl(_ordersControl, _ordersButton);
+        applyFilter();
     }
 
     private void ShowControl(Control controlToShow, Button activeButton)
@@ -152,10 +218,12 @@ public class MainForm : Form
         {
             button.BackColor = Color.FromArgb(28, 34, 74);
             button.ForeColor = Color.White;
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(47, 55, 104);
         }
 
         activeButton.BackColor = Color.FromArgb(202, 162, 107);
         activeButton.ForeColor = Color.FromArgb(28, 34, 74);
+        activeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(220, 180, 124);
         controlToShow.Visible = true;
         controlToShow.BringToFront();
     }
@@ -168,10 +236,11 @@ public class MainForm : Form
 
             _products = await _apiClient.GetProductsAsync();
             _orders = await _apiClient.GetOrdersAsync();
+            ApplyRentalAvailabilityToProducts(_products, _orders);
 
             _dashboardControl.BindData(_products, _orders);
             _productsControl.BindData(_products);
-            _ordersControl.BindData(_orders);
+            _ordersControl.BindData(_orders, _products);
 
             SetLoadingState(false, $"Bet\u00f6ltve: {_products.Count} term\u00e9k");
         }
@@ -211,67 +280,25 @@ public class MainForm : Form
         }
     }
 
-    private async Task EnsureMissingInventoryAsync()
+    private static void ApplyRentalAvailabilityToProducts(List<Product> products, List<Order> orders)
     {
-        var missingProducts = _products
-            .Where(p => !string.IsNullOrWhiteSpace(p.Bvin) && string.IsNullOrWhiteSpace(p.InventoryBvin))
-            .ToList();
+        var activeRentalSkus = orders
+            .Where(x =>
+                (string.Equals(x.Status, "Paid", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(x.StatusName, "Paid", StringComparison.OrdinalIgnoreCase)) &&
+                string.Equals(x.CurrentRentalStatus, "Aktív", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(x.Sku))
+            .Select(x => x.Sku!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if (missingProducts.Count == 0)
+        foreach (var product in products.Where(x => x.IsRentableProduct && !string.IsNullOrWhiteSpace(x.Sku)))
         {
-            MessageBox.Show(
-                "Nincs olyan term\u00e9k, amelyhez hi\u00e1nyozna inventory rekord.",
-                "Inventory felt\u00f6lt\u00e9s",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-            return;
-        }
-
-        var confirmation = MessageBox.Show(
-            $"{missingProducts.Count} term\u00e9khez hi\u00e1nyzik inventory rekord. L\u00e9trehozzam ezeket, \u00e9s \u00e1ll\u00edtsam az On Hand \u00e9rt\u00e9ket 5-re?",
-            "Inventory felt\u00f6lt\u00e9s",
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Question);
-
-        if (confirmation != DialogResult.Yes)
-            return;
-
-        try
-        {
-            SetLoadingState(true, $"Hi\u00e1nyz\u00f3 inventoryk l\u00e9trehoz\u00e1sa: 0/{missingProducts.Count}");
-
-            var processed = 0;
-            foreach (var product in missingProducts)
-            {
-                product.InventoryQuantity = 5;
-                product.IsAvailableForSale = true;
-                product.Status = 1;
-
-                await _apiClient.SaveProductAsync(product);
-
-                processed++;
-                SetLoadingState(true, $"Hi\u00e1nyz\u00f3 inventoryk l\u00e9trehoz\u00e1sa: {processed}/{missingProducts.Count}");
-            }
-
-            await LoadDataAsync();
-
-            MessageBox.Show(
-                $"{processed} term\u00e9k inventory rekordja l\u00e9trej\u00f6tt, \u00e9s az On Hand \u00e9rt\u00e9k 5 lett.",
-                "Inventory felt\u00f6lt\u00e9s",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(
-                $"Nem siker\u00fclt minden hi\u00e1nyz\u00f3 inventory rekordot l\u00e9trehozni.\n\n{ex.Message}",
-                "Inventory felt\u00f6lt\u00e9si hiba",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Error);
-        }
-        finally
-        {
-            SetLoadingState(false, $"Bet\u00f6ltve: {_products.Count} term\u00e9k");
+            var isCurrentlyRented = activeRentalSkus.Contains(product.Sku!);
+            product.InventoryOnHandQuantity = isCurrentlyRented ? 0 : 1;
+            product.InventoryReservedQuantity = 0;
+            product.InventoryQuantity = isCurrentlyRented ? 0 : 1;
+            product.IsAvailableForSale = !isCurrentlyRented;
+            product.Status = isCurrentlyRented ? 0 : 1;
         }
     }
 

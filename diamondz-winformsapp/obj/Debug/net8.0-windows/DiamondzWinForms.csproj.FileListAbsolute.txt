@@ -12,3 +12,17 @@ C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-win
 C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winforms-starter\obj\Debug\net8.0-windows\DiamondzWinForms.pdb
 C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winforms-starter\obj\Debug\net8.0-windows\DiamondzWinForms.genruntimeconfig.cache
 C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winforms-starter\obj\Debug\net8.0-windows\ref\DiamondzWinForms.dll
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\bin\Debug\net8.0-windows\DiamondzWinForms.exe
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\bin\Debug\net8.0-windows\DiamondzWinForms.deps.json
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\bin\Debug\net8.0-windows\DiamondzWinForms.runtimeconfig.json
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\bin\Debug\net8.0-windows\DiamondzWinForms.dll
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\bin\Debug\net8.0-windows\DiamondzWinForms.pdb
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\DiamondzWinForms.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\DiamondzWinForms.AssemblyInfoInputs.cache
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\DiamondzWinForms.AssemblyInfo.cs
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\DiamondzWinForms.csproj.CoreCompileInputs.cache
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\DiamondzWinForms.dll
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\refint\DiamondzWinForms.dll
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\DiamondzWinForms.pdb
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\DiamondzWinForms.genruntimeconfig.cache
+C:\Users\Acer\Documents\Susu 4.félév\Rendszerfejlesztés\winforms\diamondz-winformsapp\obj\Debug\net8.0-windows\ref\DiamondzWinForms.dll

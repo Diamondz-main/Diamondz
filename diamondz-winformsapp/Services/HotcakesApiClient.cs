@@ -42,15 +42,34 @@ public class HotcakesApiClient
             ApplyInventoryState(product, inventoryMap.TryGetValue(product.Bvin ?? string.Empty, out var inventory) ? inventory : null);
         }
 
+        var purchasedQuantitiesBySku = await TryGetPurchasedProductQuantitiesBySkuAsync();
+        foreach (var product in products.Where(x => !x.IsRentableProduct && !string.IsNullOrWhiteSpace(x.Sku)))
+        {
+            product.PurchasedCommittedQuantity = purchasedQuantitiesBySku.TryGetValue(product.Sku!, out var purchasedQuantity)
+                ? Math.Max(0, purchasedQuantity)
+                : 0;
+
+            product.InventoryQuantity = Math.Max(0, product.InventoryQuantity - product.PurchasedCommittedQuantity);
+            product.IsAvailableForSale = product.InventoryQuantity > 0;
+        }
+
         return products;
     }
 
     public async Task<List<Order>> GetOrdersAsync()
     {
-        using var response = await _httpClient.GetAsync(ApiSettings.OrdersEndpoint);
+        using var response = await _httpClient.GetAsync(ApiSettings.RentalsEndpoint);
         response.EnsureSuccessStatusCode();
         var json = await response.Content.ReadAsStringAsync();
-        return DeserializeList<Order>(json, "OrderNumber", "Id");
+        var orders = DeserializeList<Order>(json, "OrderNumber", "Id", "Sku", "RentalStart", "CustomerEmail");
+        var loadedAt = DateTime.Now;
+
+        foreach (var order in orders)
+        {
+            order.UpdateCurrentRentalStatus(loadedAt);
+        }
+
+        return orders;
     }
 
     public async Task SaveProductAsync(Product product)
@@ -141,8 +160,16 @@ public class HotcakesApiClient
 
         inventoryNode["ProductBvin"] = product.Bvin;
         inventoryNode["VariantId"] = inventoryNode["VariantId"]?.ToString() ?? string.Empty;
-        inventoryNode["QuantityOnHand"] = product.InventoryQuantity;
-        inventoryNode["QuantityReserved"] = ParseIntNode(inventoryNode["QuantityReserved"]);
+        var reservedQuantity = product.IsRentableProduct
+            ? ParseIntNode(inventoryNode["QuantityReserved"])
+            : Math.Max(0, product.InventoryReservedQuantity);
+
+        var onHandQuantity = product.IsRentableProduct
+            ? product.InventoryQuantity
+            : Math.Max(0, product.InventoryQuantity + reservedQuantity + product.PurchasedCommittedQuantity);
+
+        inventoryNode["QuantityOnHand"] = onHandQuantity;
+        inventoryNode["QuantityReserved"] = reservedQuantity;
         inventoryNode["LowStockPoint"] = ParseIntNode(inventoryNode["LowStockPoint"]);
         inventoryNode["OutOfStockPoint"] = ParseIntNode(inventoryNode["OutOfStockPoint"]);
 
@@ -200,8 +227,8 @@ public class HotcakesApiClient
             ["Bvin"] = string.IsNullOrWhiteSpace(product.InventoryBvin) ? string.Empty : product.InventoryBvin,
             ["ProductBvin"] = product.Bvin,
             ["VariantId"] = string.Empty,
-            ["QuantityOnHand"] = product.InventoryQuantity,
-            ["QuantityReserved"] = 0,
+            ["QuantityOnHand"] = product.IsRentableProduct ? product.InventoryQuantity : Math.Max(0, product.InventoryQuantity + product.InventoryReservedQuantity + product.PurchasedCommittedQuantity),
+            ["QuantityReserved"] = product.IsRentableProduct ? 0 : Math.Max(0, product.InventoryReservedQuantity),
             ["LowStockPoint"] = 0,
             ["OutOfStockPoint"] = 0
         };
@@ -668,14 +695,107 @@ public class HotcakesApiClient
         if (inventory is not null)
         {
             product.InventoryBvin = inventory.Bvin;
-            product.InventoryQuantity = inventory.QuantityOnHand;
+            product.InventoryOnHandQuantity = Math.Max(0, inventory.QuantityOnHand);
+            product.InventoryReservedQuantity = Math.Max(0, inventory.QuantityReserved);
+            product.InventoryQuantity = product.IsRentableProduct
+                ? product.InventoryOnHandQuantity
+                : Math.Max(0, product.InventoryOnHandQuantity - product.InventoryReservedQuantity);
         }
         else
         {
             product.InventoryBvin = null;
+            product.InventoryOnHandQuantity = 0;
+            product.InventoryReservedQuantity = 0;
             product.InventoryQuantity = 0;
         }
 
         product.IsAvailableForSale = product.InventoryQuantity > 0;
+    }
+
+    private async Task<Dictionary<string, int>> TryGetPurchasedProductQuantitiesBySkuAsync()
+    {
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            using var response = await _httpClient.GetAsync(ApiSettings.OrdersEndpoint);
+            if (!response.IsSuccessStatusCode)
+                return result;
+
+            var json = await response.Content.ReadAsStringAsync();
+            var orders = DeserializeList<StoreOrderSnapshot>(json, "bvin", "Bvin", "IsPlaced", "PaymentStatus");
+            var relevantOrders = orders
+                .Where(x => !string.IsNullOrWhiteSpace(x.Bvin) && x.IsPlaced && x.PaymentStatus > 0)
+                .ToList();
+
+            using var throttler = new SemaphoreSlim(8);
+            var tasks = relevantOrders.Select(async order =>
+            {
+                await throttler.WaitAsync();
+                try
+                {
+                    var detail = await TryGetStoreOrderDetailAsync(order.Bvin!);
+                    if (detail?.Items is null)
+                        return;
+
+                    lock (result)
+                    {
+                        foreach (var item in detail.Items.Where(x => !string.IsNullOrWhiteSpace(x.ProductSku)))
+                        {
+                            result[item.ProductSku!] = result.TryGetValue(item.ProductSku!, out var existing)
+                                ? existing + Math.Max(0, item.Quantity)
+                                : Math.Max(0, item.Quantity);
+                        }
+                    }
+                }
+                finally
+                {
+                    throttler.Release();
+                }
+            });
+
+            await Task.WhenAll(tasks);
+        }
+        catch
+        {
+            return result;
+        }
+
+        return result;
+    }
+
+    private async Task<StoreOrderDetail?> TryGetStoreOrderDetailAsync(string orderBvin)
+    {
+        try
+        {
+            using var response = await _httpClient.GetAsync(ApiSettings.OrderByBvinEndpoint(orderBvin));
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            var json = await response.Content.ReadAsStringAsync();
+            return DeserializeSingle<StoreOrderDetail>(json, "Items", "Bvin", "OrderNumber");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private sealed class StoreOrderSnapshot
+    {
+        public string? Bvin { get; set; }
+        public bool IsPlaced { get; set; }
+        public int PaymentStatus { get; set; }
+    }
+
+    private sealed class StoreOrderDetail
+    {
+        public List<StoreOrderItem>? Items { get; set; }
+    }
+
+    private sealed class StoreOrderItem
+    {
+        public string? ProductSku { get; set; }
+        public int Quantity { get; set; }
     }
 }

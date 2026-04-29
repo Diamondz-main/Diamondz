@@ -12,6 +12,8 @@ public static class ApiSettings
     public static string ProductsUpdateEndpoint => $"{ApiRoot}/products/update?key={ApiKey}";
 
     public static string OrdersEndpoint => $"{ApiRoot}/orders?key={ApiKey}";
+    public static string OrderByBvinEndpoint(string bvin) => $"{ApiRoot}/orders/{bvin}?key={ApiKey}";
+    public static string RentalsEndpoint => $"{BaseUrl.TrimEnd('/')}/DesktopModules/MVC/Dnn.Kolcsonzes/RentalApiHandler.ashx?apiKey=DZR-8f3a92c1b74e6d05f2a1e8c3d9b47f6a";
 
     public static string ProductInventoryEndpoint => $"{ApiRoot}/productinventory?key={ApiKey}";
     public static string ProductInventoryFindAllEndpoint => $"{ApiRoot}/productinventory/findall?key={ApiKey}";
