@@ -1,11 +1,18 @@
 ﻿@inherits DotNetNuke.Web.Mvc.Framework.DnnWebViewPage<DnnKolcsonzes.Models.RentalProductViewModel>
 @using System.Collections.Generic
 @using System.Web.Script.Serialization
+@using System.Linq
 
 @{
     Layout = null;
     var serializer = new JavaScriptSerializer();
     var blockedJson = serializer.Serialize(Model.UnavailableRanges ?? new List<DnnKolcsonzes.Models.UnavailableDateRange>());
+    var today = DateTime.Today.ToString("yyyy-MM-dd");
+    var futureRanges = new List<DnnKolcsonzes.Models.UnavailableDateRange>();
+    foreach (var r in (Model.UnavailableRanges ?? new List<DnnKolcsonzes.Models.UnavailableDateRange>()))
+    {
+        if (string.Compare(r.End, today) >= 0) { futureRanges.Add(r); }
+    }
 }
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
@@ -16,7 +23,7 @@
     <div class="dz-rental-shell">
 
         <div class="dz-breadcrumb">
-            <span>ALL PRODUCTS</span>
+            <span>Kölcsönözhető Termékek</span>
             <span>/</span>
             <span>@Model.Title</span>
             <span>/</span>
@@ -69,7 +76,7 @@
                     {
                         <div class="dz-meta-pill">Maximum @Model.MaxRentalDays nap</div>
                     }
-                    <div class="dz-meta-pill">Kaució: @String.Format("{0:N0}", Model.DepositAmount) Ft</div>
+                    <div class="dz-meta-pill">Kaució: @String.Format("{0:N0}", Model.DepositAmount) Ft *</div>
                 </div>
 
                 <div class="dz-picker-grid">
@@ -104,12 +111,15 @@
                         <strong id="dzRentalFee">-</strong>
                     </div>
                     <div class="dz-summary-row">
-                        <span>Kaució</span>
+                        <span>Kaució *</span>
                         <strong>@String.Format("{0:N0}", Model.DepositAmount) Ft</strong>
                     </div>
                     <div class="dz-summary-row dz-summary-total">
                         <span>Fizetendő a checkoutra</span>
                         <strong id="dzGrandTotal">-</strong>
+                    </div>
+                    <div class="dz-deposit-note">
+                        * A kaució helyben, az átvételkor kerül kifizetésre.
                     </div>
                 </div>
 
@@ -135,21 +145,21 @@
                     <div class="dz-rule-card">
                         <div class="dz-rule-title">Átvétel</div>
                         <div class="dz-rule-text">
-                            @(Model.PickupAllowed ? "Személyes átvétel elérhető." : "Személyes átvétel nem elérhető.")
+                            Kizárólag személyes átvétel lehetséges, előre egyeztetett időpontban.
                         </div>
                     </div>
 
                     <div class="dz-rule-card">
                         <div class="dz-rule-title">Szállítás</div>
                         <div class="dz-rule-text">
-                            @(Model.ShippingAllowed ? "Szállítás elérhető egyeztetés alapján." : "Jelenleg csak személyes átvétel.")
+                            Szállítás nem elérhető – a terméket személyesen kell átvenni a boltban.
                         </div>
                     </div>
 
                     <div class="dz-rule-card">
                         <div class="dz-rule-title">Előkészítés</div>
                         <div class="dz-rule-text">
-                            Minimum @Model.PreparationDays nap szükséges a kiadás előtt.
+                            Az előkészítés maximum 5 órát vesz igénybe az átvétel előtt.
                         </div>
                     </div>
                 </div>
@@ -167,9 +177,9 @@
             <div class="dz-unavailable-card dz-reveal">
                 <h2>Foglalt időszakok</h2>
 
-                @if (Model.UnavailableRanges != null && Model.UnavailableRanges.Count > 0)
+                @if (futureRanges.Count > 0)
                 {
-                    foreach (var range in Model.UnavailableRanges)
+                    foreach (var range in futureRanges)
                     {
                         <div class="dz-date-block">
                             <span>@range.Start</span>
@@ -374,14 +384,20 @@
         return true;
     }
 
+    var todayStr = formatYmd(normalizeDate(new Date()));
     var disableConfig = [];
     for (var d = 0; d < blockedRanges.length; d++) {
-        disableConfig.push({ from: blockedRanges[d].Start, to: blockedRanges[d].End });
+        if (blockedRanges[d].End >= todayStr) {
+            disableConfig.push({ from: blockedRanges[d].Start, to: blockedRanges[d].End });
+        }
     }
 
     var minSelectableDate = formatYmd(addDays(normalizeDate(new Date()), preparationDays));
 
     function markBlockedDay(_, __, fp, dayElem) {
+        var day = normalizeDate(dayElem.dateObj);
+        var today = normalizeDate(new Date());
+        if (day < today) return;
         if (isBlockedDay(dayElem.dateObj)) {
             dayElem.classList.add('dz-booked-day');
         }
@@ -432,21 +448,25 @@
     startInput.addEventListener('click', function () { openRangePicker(startInput); });
     startInput.addEventListener('focus', function () { openRangePicker(startInput); });
 
-    endInput.addEventListener('click', function () {
+    // JAVÍTÁS: ha már van kezdődátum és a végdátumra kattintanak,
+    // folytatjuk a range kijelölést (nem reseteljük)
+    function openForEnd() {
         if (!startInput.value) {
             openRangePicker(startInput);
             return;
         }
+        // Ha csak kezdődátum van, biztosítjuk hogy a picker tudja hol tart
+        if (rangePicker.selectedDates.length === 0) {
+            var s = toDate(startInput.value);
+            if (s) {
+                rangePicker.setDate([s], false);
+            }
+        }
         openRangePicker(endInput);
-    });
+    }
 
-    endInput.addEventListener('focus', function () {
-        if (!startInput.value) {
-            openRangePicker(startInput);
-            return;
-        }
-        openRangePicker(endInput);
-    });
+    endInput.addEventListener('click', openForEnd);
+    endInput.addEventListener('focus', openForEnd);
 
     bookingBtn.addEventListener('click', function (e) {
         e.preventDefault();
