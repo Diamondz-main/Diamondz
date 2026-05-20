@@ -1,4 +1,9 @@
-﻿using System;
+﻿using DnnKolcsonzes.Models;
+using DotNetNuke.Entities.Portals;
+using DotNetNuke.Entities.Users;
+using DotNetNuke.Web.Mvc.Framework.Controllers;
+using Hotcakes.Commerce;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data.SqlClient;
@@ -6,10 +11,7 @@ using System.Globalization;
 using System.Linq;
 using System.Web;
 using System.Web.Mvc;
-using DotNetNuke.Entities.Portals;
-using DotNetNuke.Entities.Users;
-using DotNetNuke.Web.Mvc.Framework.Controllers;
-using DnnKolcsonzes.Models;
+using System.Xml.Linq;
 
 namespace DnnKolcsonzes.Controllers
 {
@@ -71,79 +73,89 @@ namespace DnnKolcsonzes.Controllers
         }
 
         [HttpPost]
-        [ValidateAntiForgeryToken]
+        //[ValidateAntiForgeryToken]
         public ActionResult AddToCart(AddRentalToCartPostModel post)
         {
-            if (post == null || string.IsNullOrWhiteSpace(post.ProductBvin))
+            try
             {
-                return Redirect(GetBackUrl());
-            }
-
-            var model = LoadProductFromHotcakes(post.ProductBvin);
-            if (model == null)
-            {
-                return Content("A termék nem található.");
-            }
-
-            var start = ParseDate(post.StartDate);
-            var end = ParseDate(post.EndDate);
-
-            if (!start.HasValue || !end.HasValue)
-            {
-                return Content("Hibás kezdő vagy záró dátum.");
-            }
-
-            if (end.Value < start.Value)
-            {
-                return Content("A záró dátum nem lehet korábbi a kezdő dátumnál.");
-            }
-
-            var rentalDays = (end.Value - start.Value).Days + 1;
-
-            if (rentalDays < model.MinRentalDays)
-            {
-                return Content("Túl rövid bérlés.");
-            }
-
-            if (model.MaxRentalDays.HasValue && rentalDays > model.MaxRentalDays.Value)
-            {
-                return Content("Túl hosszú bérlés.");
-            }
-
-            var sku = string.IsNullOrWhiteSpace(post.Sku) ? model.Sku : post.Sku;
-            if (string.IsNullOrWhiteSpace(sku))
-            {
-                return Content("A termék SKU-ja hiányzik, ezért nem rakható a Hotcakes kosárba.");
-            }
-
-            var cartToken = EnsureCartToken();
-
-            var blockedRanges = LoadUnavailableRanges(model.ProductBvin, cartToken);
-            for (var i = 0; i < blockedRanges.Count; i++)
-            {
-                var blockedStart = ParseDate(blockedRanges[i].Start);
-                var blockedEnd = ParseDate(blockedRanges[i].End);
-
-                if (blockedStart.HasValue && blockedEnd.HasValue)
+                if (post == null || string.IsNullOrWhiteSpace(post.ProductBvin))
                 {
-                    if (start.Value <= blockedEnd.Value && end.Value >= blockedStart.Value)
+                    return Redirect(GetBackUrl());
+                }
+
+                var model = LoadProductFromHotcakes(post.ProductBvin);
+                if (model == null)
+                {
+                    return Content("A termék nem található.");
+                }
+
+                var start = ParseDate(post.StartDate);
+                var end = ParseDate(post.EndDate);
+
+                if (!start.HasValue || !end.HasValue)
+                {
+                    return Content("Hibás kezdő vagy záró dátum.");
+                }
+
+                if (end.Value < start.Value)
+                {
+                    return Content("A záró dátum nem lehet korábbi a kezdő dátumnál.");
+                }
+
+                var rentalDays = (end.Value - start.Value).Days + 1;
+
+                if (rentalDays < model.MinRentalDays)
+                {
+                    return Content("Túl rövid bérlés.");
+                }
+
+                if (model.MaxRentalDays.HasValue && rentalDays > model.MaxRentalDays.Value)
+                {
+                    return Content("Túl hosszú bérlés.");
+                }
+
+                var sku = string.IsNullOrWhiteSpace(post.Sku) ? model.Sku : post.Sku;
+                if (string.IsNullOrWhiteSpace(sku))
+                {
+                    return Content("A termék SKU-ja hiányzik, ezért nem rakható a Hotcakes kosárba.");
+                }
+
+                var cartToken = EnsureCartToken();
+
+                var blockedRanges = LoadUnavailableRanges(model.ProductBvin, cartToken);
+                for (var i = 0; i < blockedRanges.Count; i++)
+                {
+                    var blockedStart = ParseDate(blockedRanges[i].Start);
+                    var blockedEnd = ParseDate(blockedRanges[i].End);
+
+                    if (blockedStart.HasValue && blockedEnd.HasValue)
                     {
-                        return Content("A kiválasztott időszak foglalt.");
+                        if (start.Value <= blockedEnd.Value && end.Value >= blockedStart.Value)
+                        {
+                            return Content("A kiválasztott időszak foglalt.");
+                        }
                     }
                 }
+
+                RemoveSkuFromHotcakesCartSql(sku, GetCurrentUserId());
+
+                SaveDraftRental(
+                    model: model,
+                    sku: sku,
+                    cartToken: cartToken,
+                    start: start.Value,
+                    end: end.Value,
+                    rentalDays: rentalDays
+                );
+
+                // RemoveSkuFromHotcakesCart(sku);
+                var singleAddUrl = BuildHotcakesSingleAddUrl(sku);
+                return Content(BuildMultiAddHtml(singleAddUrl, rentalDays), "text/html");
             }
-
-            SaveDraftRental(
-                model: model,
-                sku: sku,
-                cartToken: cartToken,
-                start: start.Value,
-                end: end.Value,
-                rentalDays: rentalDays
-            );
-
-            var singleAddUrl = BuildHotcakesSingleAddUrl(sku);
-            return Content(BuildMultiAddHtml(singleAddUrl, rentalDays), "text/html");
+            catch (Exception ex)
+            {
+                return Content("HIBA: " + ex.Message + " | " + ex.StackTrace);
+            }
         }
 
         [HttpGet]
@@ -152,6 +164,8 @@ namespace DnnKolcsonzes.Controllers
             Response.ContentType = "application/json";
             return Content("{\"ok\":true}", "application/json");
         }
+
+        
 
         [AllowAnonymous]
         [HttpGet]
@@ -209,6 +223,70 @@ namespace DnnKolcsonzes.Controllers
             }
         }
 
+        private void RemoveSkuFromHotcakesCartSql(string sku, int userId)
+        {
+            try
+            {
+                var connectionString = ConfigurationManager.ConnectionStrings["SiteSqlServer"].ConnectionString;
+                using (var conn = new SqlConnection(connectionString))
+                {
+                    conn.Open();
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"
+DELETE li FROM hcc_LineItem li
+JOIN hcc_Order o ON o.bvin = li.OrderBvin
+WHERE o.IsPlaced = 0
+AND li.ProductSku = @Sku
+AND (
+    (@UserId > 0 AND o.UserId = @UserId)
+    OR
+    (@UserId <= 0 AND (o.UserId IS NULL OR o.UserId = 0) AND o.LastUpdated >= DATEADD(hour, -24, GETUTCDATE()))
+)";
+                        cmd.Parameters.AddWithValue("@Sku", sku ?? "");
+                        cmd.Parameters.AddWithValue("@UserId", userId);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch
+            {
+                // ha nem sikerül, folytatjuk
+            }
+        }
+
+        private int GetCurrentUserId()
+        {
+            var user = UserController.Instance.GetCurrentUserInfo();
+            return user != null ? user.UserID : -1;
+        }
+
+        private void RemoveSkuFromHotcakesCart(string sku)
+        {
+            try
+            {
+                var hccApp = Hotcakes.Commerce.HotcakesApplication.Current;
+                if (hccApp == null) return;
+
+                var order = hccApp.OrderServices.EnsureShoppingCart();
+                if (order == null) return;
+
+                var toRemove = order.Items
+                    .Where(x => string.Equals((x.ProductSku ?? "").Trim(), (sku ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                foreach (var item in toRemove)
+                {
+                    order.Items.Remove(item);
+                }
+                hccApp.OrderServices.Orders.Update(order);
+            }
+            catch
+            {
+                // ha nem sikerül, folytatjuk
+            }
+        }
+
         private RentalProductViewModel LoadProductFromHotcakes(string hccId)
         {
             if (string.IsNullOrWhiteSpace(hccId))
@@ -217,6 +295,15 @@ namespace DnnKolcsonzes.Controllers
             }
 
             var connectionString = ConfigurationManager.ConnectionStrings["SiteSqlServer"].ConnectionString;
+
+            string productBvin = "";
+            string title = "";
+            string shortDescription = "";
+            string longDescription = "";
+            string imageFileMedium = "";
+            string imageFileSmall = "";
+            string sku = "";
+            decimal dailyPrice = 0m;
 
             using (var conn = new SqlConnection(connectionString))
             using (var cmd = conn.CreateCommand())
@@ -247,46 +334,86 @@ ORDER BY t.ProductTranslationId";
                         return null;
                     }
 
-                    var productBvin = reader["bvin"] == DBNull.Value ? "" : reader["bvin"].ToString();
-                    var title = reader["ProductName"] == DBNull.Value ? "" : reader["ProductName"].ToString();
-                    var shortDescription = reader["ShortDescription"] == DBNull.Value ? "" : reader["ShortDescription"].ToString();
-                    var longDescription = reader["LongDescription"] == DBNull.Value ? "" : reader["LongDescription"].ToString();
-                    var imageFileMedium = reader["ImageFileMedium"] == DBNull.Value ? "" : reader["ImageFileMedium"].ToString();
-                    var imageFileSmall = reader["ImageFileSmall"] == DBNull.Value ? "" : reader["ImageFileSmall"].ToString();
-                    var sku = reader["Sku"] == DBNull.Value ? "" : reader["Sku"].ToString();
+                    productBvin = reader["bvin"] == DBNull.Value ? "" : reader["bvin"].ToString();
+                    title = reader["ProductName"] == DBNull.Value ? "" : reader["ProductName"].ToString();
+                    shortDescription = reader["ShortDescription"] == DBNull.Value ? "" : reader["ShortDescription"].ToString();
+                    longDescription = reader["LongDescription"] == DBNull.Value ? "" : reader["LongDescription"].ToString();
+                    imageFileMedium = reader["ImageFileMedium"] == DBNull.Value ? "" : reader["ImageFileMedium"].ToString();
+                    imageFileSmall = reader["ImageFileSmall"] == DBNull.Value ? "" : reader["ImageFileSmall"].ToString();
+                    sku = reader["Sku"] == DBNull.Value ? "" : reader["Sku"].ToString();
 
-                    var imageFile = !string.IsNullOrWhiteSpace(imageFileMedium) ? imageFileMedium : imageFileSmall;
-                    var descriptionHtml = !string.IsNullOrWhiteSpace(longDescription) ? longDescription : shortDescription;
-
-                    if (string.IsNullOrWhiteSpace(descriptionHtml))
-                    {
-                        descriptionHtml = "<p>Nincs leírás ehhez a termékhez.</p>";
-                    }
-
-                    decimal dailyPrice = 0m;
                     if (reader["SitePrice"] != DBNull.Value)
                     {
                         dailyPrice = Convert.ToDecimal(reader["SitePrice"]);
                     }
-
-                    return new RentalProductViewModel
-                    {
-                        ProductBvin = productBvin,
-                        Title = string.IsNullOrWhiteSpace(title) ? "Névtelen termék" : title,
-                        Subtitle = "Kölcsönzés",
-                        DescriptionHtml = descriptionHtml,
-                        ImageUrl = BuildHotcakesImageUrl(productBvin, imageFile),
-                        DailyPrice = dailyPrice,
-                        DepositAmount = 120000m,
-                        MinRentalDays = 2,
-                        MaxRentalDays = 7,
-                        PreparationDays = 1,
-                        PickupAllowed = true,
-                        ShippingAllowed = true,
-                        RentalNote = "A kiválasztott időszak a rendeléshez kapcsolódik.",
-                        Sku = sku
-                    };
                 }
+            }
+
+            var imageFile = !string.IsNullOrWhiteSpace(imageFileMedium) ? imageFileMedium : imageFileSmall;
+            var descriptionHtml = !string.IsNullOrWhiteSpace(longDescription) ? longDescription : shortDescription;
+
+            if (string.IsNullOrWhiteSpace(descriptionHtml))
+            {
+                descriptionHtml = "<p>Nincs leírás ehhez a termékhez.</p>";
+            }
+
+            var categoryName = GetCategoryNameForProduct(productBvin, connectionString);
+            var categoryUrl = GetCategoryUrlForProduct(productBvin, connectionString);
+
+            return new RentalProductViewModel
+            {
+                ProductBvin = productBvin,
+                Title = string.IsNullOrWhiteSpace(title) ? "Névtelen termék" : title,
+                Subtitle = "Kölcsönzés",
+                DescriptionHtml = descriptionHtml,
+                ImageUrl = BuildHotcakesImageUrl(productBvin, imageFile),
+                DailyPrice = dailyPrice,
+                DepositAmount = 120000m,
+                MinRentalDays = 2,
+                MaxRentalDays = 7,
+                PreparationDays = 1,
+                PickupAllowed = true,
+                ShippingAllowed = true,
+                RentalNote = "A kiválasztott időszak a rendeléshez kapcsolódik.",
+                Sku = sku,
+                CategoryName = categoryName,
+                CategoryUrl = categoryUrl
+            };
+        }
+
+        private string GetCategoryNameForProduct(string productBvin, string connectionString)
+        {
+            using (var conn = new SqlConnection(connectionString))
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+SELECT TOP 1 ct.Name
+FROM hcc_ProductXCategory px
+JOIN hcc_CategoryTranslations ct ON ct.CategoryId = px.CategoryId
+WHERE px.ProductId = @ProductBvin
+ORDER BY ct.Name";
+                cmd.Parameters.AddWithValue("@ProductBvin", productBvin);
+                conn.Open();
+                var result = cmd.ExecuteScalar();
+                return result == null || result == DBNull.Value ? "Kölcsönözhető termékeink" : result.ToString();
+            }
+        }
+
+        private string GetCategoryUrlForProduct(string productBvin, string connectionString)
+        {
+            using (var conn = new SqlConnection(connectionString))
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.CommandText = @"
+SELECT TOP 1 c.RewriteUrl
+FROM hcc_ProductXCategory px
+JOIN hcc_Category c ON c.bvin = px.CategoryId
+WHERE px.ProductId = @ProductBvin
+ORDER BY c.RewriteUrl";
+                cmd.Parameters.AddWithValue("@ProductBvin", productBvin);
+                conn.Open();
+                var result = cmd.ExecuteScalar();
+                return result == null || result == DBNull.Value ? "/Kölcsönzés" : "/Termekek/" + result.ToString();
             }
         }
 
@@ -1041,6 +1168,9 @@ WHERE TABLE_NAME = @TableName";
         {
             var safeAddUrl = HttpUtility.JavaScriptStringEncode(addUrl);
             var safeCartUrl = HttpUtility.JavaScriptStringEncode("/Cart");
+            var safeSku = HttpUtility.JavaScriptStringEncode(
+                HttpUtility.UrlDecode(addUrl.Contains("AddSku=") ? addUrl.Substring(addUrl.IndexOf("AddSku=") + 7) : "")
+            );
 
             return @"<!DOCTYPE html>
 <html>
@@ -1055,10 +1185,11 @@ WHERE TABLE_NAME = @TableName";
         (function () {
             var addUrl = '" + safeAddUrl + @"';
             var cartUrl = '" + safeCartUrl + @"';
+            var sku = '" + safeSku + @"';
             var quantity = " + quantity.ToString(CultureInfo.InvariantCulture) + @";
 
             function goToCart() {
-                window.location.href = cartUrl;
+                window.location.replace(cartUrl);
             }
 
             function addNext(index) {
@@ -1088,7 +1219,14 @@ WHERE TABLE_NAME = @TableName";
                 });
             }
 
-            addNext(0);
+            fetch('/Cart?RemoveSku=' + encodeURIComponent(sku), {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                redirect: 'follow'
+            })
+            .then(function () { addNext(0); })
+            .catch(function () { addNext(0); });
         })();
     </script>
 </body>
@@ -1208,3 +1346,5 @@ WHERE TABLE_NAME = @TableName";
         }
     }
 }
+
+

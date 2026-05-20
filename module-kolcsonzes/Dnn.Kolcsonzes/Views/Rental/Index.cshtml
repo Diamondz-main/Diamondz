@@ -23,7 +23,11 @@
     <div class="dz-rental-shell">
 
         <div class="dz-breadcrumb">
-            <span>Kölcsönözhető Termékek</span>
+            <a href="/Termekek">Termékek</a>
+            <span>/</span>
+            <a href="/Kölcsönzés">Kölcsönözhető termékeink</a>
+            <span>/</span>
+            <a href="@Model.CategoryUrl">@Model.CategoryName</a>
             <span>/</span>
             <span>@Model.Title</span>
             <span>/</span>
@@ -123,7 +127,7 @@
                     </div>
                 </div>
 
-                @Html.AntiForgeryToken()
+                
                 <input type="hidden" name="ProductBvin" value="@Model.ProductBvin" />
                 <input type="hidden" name="Sku" value="@Model.Sku" />
                 <input type="hidden" id="dzPostQuantity" name="Quantity" value="1" />

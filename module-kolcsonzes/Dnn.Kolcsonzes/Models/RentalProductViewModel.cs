@@ -29,6 +29,8 @@ namespace DnnKolcsonzes.Models
         public bool ShippingAllowed { get; set; }
 
         public string RentalNote { get; set; }
+        public string CategoryName { get; set; }
+        public string CategoryUrl { get; set; }
 
         public List<UnavailableDateRange> UnavailableRanges { get; set; }
         public List<RentalHighlightItem> Highlights { get; set; }
